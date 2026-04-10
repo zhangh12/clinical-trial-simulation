@@ -1,0 +1,13 @@
+# Compiled HTML (rendered from .md)
+*.html
+
+# Claude local settings
+.claude/settings.local.json
+
+# R artifacts
+.Rhistory
+.RData
+.Rproj.user/
+
+# macOS
+.DS_Store
