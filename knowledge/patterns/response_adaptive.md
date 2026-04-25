@@ -24,7 +24,8 @@ Typically used with binary or short-readout endpoints.
    ...
 6. milestone(name = "final", when = enrollment(n = N) | calendarTime(time = T), action = action_final)
 7. listener()
-8. controller(trial = tr, listener = l) → $run(n_trials = N)
+   listener$add_milestones(m_rar1, m_rar2, m_final)
+8. controller(trial = tr, listener = l) → $run(n = N)
 ```
 
 ## Decision Points (What Varies Per User)
@@ -58,26 +59,25 @@ ratios <- ratios / sum(ratios)
 ## Action Function: RAR Update
 
 ```r
-action_rar <- function(trial, floor = 0.1, ...) {
-  data <- trial$get_locked_data("<milestone_name>")
-  
-  # Compute response rates per arm (non-missing readout observations)
-  arms <- c("control", "exp1", ...)  # fill from user
+action_rar <- function(trial, milestone_name, floor_ratio = 0.10, ...) {
+  data <- trial$get_locked_data(milestone_name = milestone_name)
+  arms <- c("control", "exp1", "exp2")  # fill from elicitation
+
+  # DUMMY CONDITION: proportional to observed response rate with floor
+  # Replace with actual rule (e.g., Thompson sampling, sqrt transformation, DBCD)
   rates <- sapply(arms, function(a) {
-    arm_data <- data[data$arm == a & !is.na(data$<response_ep>), ]
-    if (nrow(arm_data) == 0) return(NA_real_)
-    mean(arm_data$<response_ep>)
+    d <- data[data$arm == a & !is.na(data$response), , drop = FALSE]
+    if (nrow(d) == 0) return(NA_real_)
+    mean(d$response)
   })
-  
-  # Handle NAs (arms with no data yet keep current ratio)
-  if (any(is.na(rates))) return(invisible(NULL))
-  
-  # Update rule: proportional (customize per user)
-  new_ratios <- pmax(rates, floor)
+
+  if (any(is.na(rates))) return(invisible(NULL))  # skip if insufficient data
+
+  new_ratios <- pmax(rates, floor_ratio)
   new_ratios <- new_ratios / sum(new_ratios)
-  
-  trial$update_sample_ratio(arm_names = arms, sample_ratios = new_ratios)
-  trial$save(value = t(new_ratios), name = paste0("ratios_", "<milestone_name>"))
+
+  trial$update_sample_ratio(arm_names = arms, sample_ratios = as.numeric(new_ratios))
+  trial$save(value = t(round(new_ratios, 3)), name = paste0("ratio_", milestone_name))
 }
 ```
 
@@ -87,15 +87,21 @@ action_rar <- function(trial, floor = 0.1, ...) {
 action_final <- function(trial, ...) {
   data <- trial$get_locked_data(milestone_name = "final")
 
-  # Primary analysis (customize per user — may be TTE even if RAR used binary response)
-  # Example: logrank test for TTE primary
-  # fit <- fitLogrank(formula = os ~ arm, data = data, reference = "control")
-  # trial$save(value = fit$pvalue, name = "pvalue")
-  # trial$save(value = as.integer(fit$pvalue < 0.025), name = "reject_h0")
+  # Save observed allocation per arm
+  alloc <- table(data$arm)
+  for (a in names(alloc)) {
+    trial$save(value = as.integer(alloc[a]), name = paste0("n_", a))
+  }
 
-  # Example: logistic for binary primary
-  # fit <- fitLogistic(formula = response ~ arm, data = data)
-  # trial$save(value = fit$pvalue["exp1"], name = "pvalue_exp1")
+  # DUMMY: logistic test — replace with actual primary analysis
+  # For TTE primary: use fitLogrank() or fitCoxph()
+  d_test <- data[data$arm %in% c("control", "exp1") & !is.na(data$response), ]
+  if (nrow(d_test) > 0 && length(unique(d_test$arm)) == 2) {
+    fit <- fitLogistic(formula = response ~ arm, data = d_test)
+    trial$save(value = as.integer(fit$p.value < 0.025), name = "reject_h0")
+  } else {
+    trial$save(value = NA_integer_, name = "reject_h0")
+  }
 }
 ```
 

@@ -2,67 +2,62 @@ library(TrialSimulator)
 
 # =============================================================================
 # SEAMLESS PHASE II/III ADAPTIVE DESIGN TEMPLATE
-# Placeholders marked with <...> must be filled via elicitation.
-# Run validation after filling all placeholders.
+# Placeholders <...> must be filled from elicitation before validation.
+# Action functions use dummy but runnable conditions — replace with actual rules.
 # =============================================================================
-
-# --- Data Generators ---------------------------------------------------------
-
-gen_control <- function(n, ...) {
-  data.frame(
-    os       = rexp(n = n, rate = log(2) / <median_control_months>),
-    os_event = 1L
-  )
-}
-
-gen_exp <- function(n, hr = <hazard_ratio>, ...) {
-  data.frame(
-    os       = rexp(n = n, rate = log(2) / <median_control_months> * hr),
-    os_event = 1L
-  )
-}
 
 # --- Endpoints ---------------------------------------------------------------
 
-ep_control <- endpoint(name = "os", type = "tte", generator = gen_control)
-ep_exp     <- endpoint(name = "os", type = "tte", generator = gen_exp)
+ep_ctrl <- endpoint(
+  name      = "os",
+  type      = "tte",
+  generator = rexp,
+  rate      = log(2) / <median_ctrl_months>
+)
+
+ep_exp1 <- endpoint(
+  name      = "os",
+  type      = "tte",
+  generator = rexp,
+  rate      = log(2) / <median_exp1_months>
+)
+
+ep_exp2 <- endpoint(  # remove if only 1 experimental arm
+  name      = "os",
+  type      = "tte",
+  generator = rexp,
+  rate      = log(2) / <median_exp2_months>
+)
 
 # --- Arms --------------------------------------------------------------------
 
-ctrl <- arm(name = "control")
-ctrl$add_endpoints(ep_control)
+ctrl <- arm(name = "control"); ctrl$add_endpoints(ep_ctrl)
+exp1 <- arm(name = "exp1");    exp1$add_endpoints(ep_exp1)
+exp2 <- arm(name = "exp2");    exp2$add_endpoints(ep_exp2)
 
-exp1 <- arm(name = "exp1")
-exp1$add_endpoints(endpoint(name = "os", type = "tte", generator = gen_exp, hr = <hr_exp1>))
-
-exp2 <- arm(name = "exp2")  # remove if only 1 experimental arm
-exp2$add_endpoints(endpoint(name = "os", type = "tte", generator = gen_exp, hr = <hr_exp2>))
-
-# --- Action: Interim (Arm Selection) -----------------------------------------
+# --- Action: Interim (Arm Selection) ----------------------------------------
 
 action_interim <- function(trial, ...) {
-  data <- trial$get_locked_data(milestone_name = "interim")
+  data     <- trial$get_locked_data(milestone_name = "interim")
+  exp_arms <- c("exp1", "exp2")  # update if arm names differ
 
-  # Arm selection: customize rule below
-  exp_arms <- c("exp1", "exp2")  # update with actual arm names
-
-  # Example rule: select arm with most events (proxy for faster OS improvement)
-  # Replace with user's selection criterion
-  event_counts <- tapply(data$os_event, data$arm, sum, na.rm = TRUE)
-  best_arm <- names(which.max(event_counts[exp_arms]))
+  # DUMMY CONDITION: select arm with most OS events — replace with actual rule
+  counts       <- tapply(data$os_event, data$arm, sum, na.rm = TRUE)
+  best_arm     <- names(which.max(counts[exp_arms]))
   arms_to_drop <- setdiff(exp_arms, best_arm)
 
-  trial$remove_arms(arms_name = arms_to_drop)
+  if (length(arms_to_drop) > 0) {
+    trial$remove_arms(arms_name = arms_to_drop)
+  }
+
   trial$save_custom_data(value = best_arm, name = "selected_arm")
   trial$save(value = best_arm, name = "selected_arm")
-
-  # Optional sample size update for phase III
-  # trial$resize(n_patients = <phase3_n_patients>)
 }
 
 # --- Action: Final Analysis --------------------------------------------------
 
 action_final <- function(trial, ...) {
+  data     <- trial$get_locked_data(milestone_name = "final")
   selected <- trial$get(name = "selected_arm")
 
   dt <- trial$dunnettTest(
@@ -101,27 +96,27 @@ m_final <- milestone(
 
 # --- Trial -------------------------------------------------------------------
 
+accrual <- data.frame(
+  end_time       = c(<accrual_period_months>, <max_duration_months>),
+  piecewise_rate = c(<rate_phase1>, <rate_phase2>)
+)
+
 tr <- trial(
-  name       = "seamless_ph2_ph3",
-  n_patients = <total_n_patients>,
-  duration   = <max_duration_months>,
-  enroller   = StaggeredRecruiter,
-  rate       = c(<rate_phase1>, <rate_phase2>),
-  duration   = c(<accrual_period1>, <accrual_period2>)
+  name         = "seamless_ph2_ph3",
+  n_patients   = <total_n_patients>,
+  duration     = <max_duration_months>,
+  enroller     = StaggeredRecruiter,
+  accrual_rate = accrual
 )
 
-tr$add_arms(
-  sample_ratio = c(1, 1, 1),  # equal allocation; adjust if needed
-  ctrl, exp1, exp2
-)
-
-tr$add_milestones(m_interim, m_final)
+tr$add_arms(sample_ratio = c(1, 1, 1), ctrl, exp1, exp2)
 
 # --- Run Simulation ----------------------------------------------------------
 
 l   <- listener()
+l$add_milestones(m_interim, m_final)
 ctr <- controller(trial = tr, listener = l)
-ctr$run(n_trials = <n_replicates>)
+ctr$run(n = <n_replicates>)
 
 # --- Summarize Results -------------------------------------------------------
 

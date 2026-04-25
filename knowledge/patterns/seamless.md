@@ -22,7 +22,8 @@ Saves time and patients compared to running two separate trials.
 4. milestone(name = "interim", when = eventNumber(endpoint = ep, n = n_interim), action = action_interim)
 5. milestone(name = "final",   when = eventNumber(endpoint = ep, n = n_final),   action = action_final)
 6. listener()
-7. controller(trial = tr, listener = l) → $run(n_trials = N)
+   listener$add_milestones(m_interim, m_final)
+7. controller(trial = tr, listener = l) → $run(n = N)
 ```
 
 ## Decision Points (What Varies Per User)
@@ -38,24 +39,28 @@ Saves time and patients compared to running two separate trials.
 | Alpha spending | "O'Brien-Fleming (asOF) or Pocock (asP)?" |
 | Secondary endpoints | "Any secondary endpoints to test or save?" |
 
-## Action Function: Interim (arm_selection)
+## Action Function: Interim (arm selection)
 
 ```r
 action_interim <- function(trial, ...) {
-  data <- trial$get_locked_data(milestone_name = "interim")
+  data     <- trial$get_locked_data(milestone_name = "interim")
+  exp_arms <- c("exp1", "exp2")  # fill from elicitation
 
-  # --- Arm selection criterion (customize per user) ---
-  # Example: select arm with highest response rate
-  exp_arms <- c("exp1", "exp2")  # fill from user
-  responses <- tapply(data$<response_ep>, data$arm, mean, na.rm = TRUE)
-  best_arm <- names(which.max(responses[exp_arms]))
+  # DUMMY CONDITION: select arm with most OS events — replace with actual rule
+  counts       <- tapply(data$os_event, data$arm, sum, na.rm = TRUE)
+  best_arm     <- names(which.max(counts[exp_arms]))
   arms_to_drop <- setdiff(exp_arms, best_arm)
 
-  trial$remove_arms(arms_name = arms_to_drop)
+  if (length(arms_to_drop) > 0) {
+    trial$remove_arms(arms_name = arms_to_drop)
+  }
 
-  # Optional: resize for phase III
-  # trial$resize(n_patients = <phase3_n>)
+  # Optional SSR — DUMMY: inflate if event rate below expected
+  # obs_rate <- mean(data$os_event, na.rm = TRUE)
+  # new_n    <- ceiling(<n_events_final> / max(obs_rate, 0.01))
+  # trial$resize(n_patients = max(new_n, <total_n_patients>))
 
+  trial$save_custom_data(value = best_arm, name = "selected_arm")
   trial$save(value = best_arm, name = "selected_arm")
 }
 ```
@@ -64,26 +69,29 @@ action_interim <- function(trial, ...) {
 
 ```r
 action_final <- function(trial, ...) {
-  
+  data     <- trial$get_locked_data(milestone_name = "final")
+  selected <- trial$get(name = "selected_arm")
+  if (is.null(selected)) selected <- "exp1"  # guard for edge cases
+
   dt <- trial$dunnettTest(
-    formula      = <ep> ~ arm,
+    formula      = os ~ arm,
     placebo      = "control",
-    treatments   = trial$get("selected_arm"),  # dynamically use selected arm
-    milestones   = c("interim", "final"),       # combine both stages
+    treatments   = selected,
+    milestones   = c("interim", "final"),
     alternative  = "greater",
     planned_info = "oracle"
   )
-  
+
   result <- trial$closedTest(
     dunnett_test   = dt,
-    treatments     = trial$get("selected_arm"),
+    treatments     = selected,
     milestones     = c("interim", "final"),
     alpha          = 0.025,
     alpha_spending = "asOF"
   )
-  
+
   trial$save(value = as.integer(any(result$decision == "reject")), name = "reject_h0")
-  trial$save(value = result$milestone_at_reject[1], name = "reject_at")
+  trial$save(value = as.character(result$milestone_at_reject[1]),  name = "reject_at")
 }
 ```
 

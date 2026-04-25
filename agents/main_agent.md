@@ -32,8 +32,11 @@ After Phase 1, determine if the design matches a known pattern:
 
 | Signals | Pattern | Sub-agent |
 |---------|---------|-----------|
-| Multiple exp arms, interim selection, combined analysis | Seamless Ph II/III | `sub_agents/seamless.md` |
-| Randomization ratio updates based on response | Response-adaptive (RAR) | `sub_agents/response_adaptive.md` |
+| Multiple exp arms, interim selection, combined Ph II+III analysis | Seamless Ph II/III | `sub_agents/seamless.md` |
+| Randomization ratio updates based on accumulating response | Response-adaptive (RAR) | `sub_agents/response_adaptive.md` |
+| Fixed design, no adaptation, single or multi-arm | Fixed (no sub-agent) | Use composer with no adaptations |
+| Add dose arms mid-trial based on early signal | Dose-ranging / adaptive addition | `composer.md` |
+| Arms enter and exit independently | Platform / perpetual | `composer.md` |
 | Novel combination or unclear | Composer | `composer.md` |
 
 If pattern is clear: say "This sounds like a [pattern] design. Let me ask a few more specific questions."
@@ -83,6 +86,35 @@ Once parameters are confirmed:
 2. Use confirmed parameter values — no placeholders in the final script
 3. Insert user-provided code in correct locations
 4. Mark any remaining unknowns with `# TODO:` comments only if user has been informed
+
+**Runnable code requirements — strictly enforced:**
+
+- Every action function must call `trial$get_locked_data(milestone_name = "...")` as its first step
+- Every action function must have at least one `trial$save()` call
+- All adaptive calls (`remove_arms`, `resize`, `update_sample_ratio`, `add_arms`, `update_generator`) must appear in the code if the design calls for them — use a dummy but data-driven condition if the user has not specified the exact rule
+- Dummy conditions must be runnable: compute something from the locked data, apply a simple threshold, and make the adaptive call. Label clearly with `# DUMMY CONDITION — replace with actual rule`
+- Guard all adaptive calls against edge cases (e.g., `if (length(arms_to_drop) > 0)` before `remove_arms()`)
+- The generated script must run end-to-end without errors before being returned to the user
+
+**Dummy condition patterns by adaptation type:**
+
+```r
+# Arm removal — select arm with most events; drop the rest
+counts       <- tapply(data$os_event, data$arm, sum, na.rm = TRUE)
+best_arm     <- names(which.max(counts[exp_arms]))
+arms_to_drop <- setdiff(exp_arms, best_arm)
+if (length(arms_to_drop) > 0) trial$remove_arms(arms_name = arms_to_drop)
+
+# RAR update — proportional to observed response rate with floor
+rates      <- tapply(data$response, data$arm, mean, na.rm = TRUE)
+new_ratios <- pmax(rates, 0.10); new_ratios <- new_ratios / sum(new_ratios)
+trial$update_sample_ratio(arm_names = names(new_ratios), sample_ratios = as.numeric(new_ratios))
+
+# Sample size reassessment — inflate by observed-to-expected event rate ratio
+obs_rate <- mean(data$os_event, na.rm = TRUE)
+new_n    <- ceiling(trial_n * 0.80 / max(obs_rate, 0.01))  # target 80% events
+trial$resize(n_patients = max(new_n, trial_n))
+```
 
 ### Phase 5: Validation
 Follow `validation/validate.md`:

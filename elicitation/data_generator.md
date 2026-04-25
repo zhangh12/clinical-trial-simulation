@@ -21,9 +21,9 @@ Default to the simplest model that fits; escalate complexity only if user requir
 - Simple: exponential dropout with a long median (e.g., 5× trial duration)
 - None: `dropout = NULL` in `trial()`
 
-**Step 4:** Correlated endpoints (e.g., PFS + OS):
-"Are PFS and OS correlated? (They usually are in oncology.)"
-→ Yes → suggest `CorrelatedPfsAndOs3()` or `CorrelatedPfsAndOs4()` built-ins
+**Step 4:** Correlated endpoints:
+"Will you be modeling both PFS and OS?"
+→ Yes → see **Correlated PFS + OS** section below — do NOT route to NORTA for this case.
 
 ### Non-TTE Endpoints (continuous, binary, categorical)
 
@@ -45,7 +45,112 @@ All patient-level variables (covariates, biomarkers, subgroups) must go through 
 - Continuous biomarker: `rnorm(n, mean, sd)`
 - Other: any distribution whose first arg is `n`; wrap if not (e.g., `sample()`)
 
-### Correlated Endpoints (any mix of types)
+### Correlated PFS + OS
+
+Always use the dedicated built-in generators — do NOT use NORTA for PFS + OS.
+
+**Collect these 4 things before writing code:**
+
+1. **Median PFS per arm** — "What is the expected median PFS for each arm (months)?"
+2. **Median OS per arm** — "What is the expected median OS for each arm (months)?"
+3. **Correlation** — "How correlated do you expect PFS and OS to be? (0.5–0.8 is typical in oncology.)"
+   - `CorrelatedPfsAndOs2` takes Kendall's tau; `CorrelatedPfsAndOs3` takes Pearson — ask once method is chosen
+4. **Analysis model** — "Will you analyze OS (or PFS) with a Cox model or log-rank test?"
+
+**Method selection:**
+
+| | `CorrelatedPfsAndOs2` | `CorrelatedPfsAndOs3` |
+|---|---|---|
+| Correlation input | Kendall's tau | Pearson (via `solveThreeStateModel`) |
+| Marginal distributions | Exponential (simple) | 3-state illness-death model |
+| PH assumption | Compatible — exponential margins | May violate — produces time-varying HR between arms |
+| Parameters | `median_pfs`, `median_os`, `kendall` | `h01`, `h02`, `h12` derived by helper |
+| Use when | Cox model / log-rank planned | Parametric or mechanistic analysis |
+
+**Rule:** If the user plans a Cox PH model or log-rank test → recommend `CorrelatedPfsAndOs2`. If they choose V3 with a Cox analysis, warn explicitly: *"CorrelatedPfsAndOs3 generates a time-varying hazard ratio between arms; this is inconsistent with the proportional hazards assumption of a Cox model. Consider CorrelatedPfsAndOs2 instead."*
+
+---
+
+#### CorrelatedPfsAndOs2 — Gumbel copula (recommended when Cox/LR analysis planned)
+
+Takes medians and Kendall's tau directly — no helper function needed. Each arm gets its own `endpoint()` call with its own medians; `kendall` is typically the same across arms.
+
+```r
+ep_ctrl <- endpoint(
+  name       = c("pfs", "os"),
+  type       = c("tte", "tte"),
+  generator  = CorrelatedPfsAndOs2,
+  median_pfs = <median_pfs_ctrl>,
+  median_os  = <median_os_ctrl>,
+  kendall    = <kendalls_tau>,
+  pfs_name   = "pfs",
+  os_name    = "os"
+)
+
+ep_exp <- endpoint(
+  name       = c("pfs", "os"),
+  type       = c("tte", "tte"),
+  generator  = CorrelatedPfsAndOs2,
+  median_pfs = <median_pfs_exp>,
+  median_os  = <median_os_exp>,
+  kendall    = <kendalls_tau>,
+  pfs_name   = "pfs",
+  os_name    = "os"
+)
+```
+
+---
+
+#### CorrelatedPfsAndOs3 — 3-state illness-death model (Pearson correlation)
+
+`solveThreeStateModel()` finds h01/h02/h12 matching the user's medians and target Pearson correlation.
+Run it once per arm; pick the row with minimum `error`.
+
+```r
+# Control arm: derive h01, h02, h12
+pars_ctrl <- solveThreeStateModel(
+  median_pfs = <median_pfs_ctrl>,
+  median_os  = <median_os_ctrl>,
+  corr       = seq(<target_pearson> - 0.05, <target_pearson> + 0.05, by = 0.01),
+  h12        = seq(0.01, 0.50, length.out = 100)
+)
+best_ctrl <- pars_ctrl[which.min(pars_ctrl$error), ]
+
+# Experimental arm: derive h01, h02, h12
+pars_exp <- solveThreeStateModel(
+  median_pfs = <median_pfs_exp>,
+  median_os  = <median_os_exp>,
+  corr       = seq(<target_pearson> - 0.05, <target_pearson> + 0.05, by = 0.01),
+  h12        = seq(0.01, 0.50, length.out = 100)
+)
+best_exp <- pars_exp[which.min(pars_exp$error), ]
+
+ep_ctrl <- endpoint(
+  name      = c("pfs", "os"),
+  type      = c("tte", "tte"),
+  generator = CorrelatedPfsAndOs3,
+  h01      = best_ctrl$h01,
+  h02      = best_ctrl$h02,
+  h12      = best_ctrl$h12,
+  pfs_name = "pfs",
+  os_name  = "os"
+)
+
+ep_exp <- endpoint(
+  name      = c("pfs", "os"),
+  type      = c("tte", "tte"),
+  generator = CorrelatedPfsAndOs3,
+  h01      = best_exp$h01,
+  h02      = best_exp$h02,
+  h12      = best_exp$h12,
+  pfs_name = "pfs",
+  os_name  = "os"
+)
+```
+
+---
+
+### Correlated Endpoints (any mix of types other than PFS + OS)
 
 "Are any endpoints correlated with each other?"
 → Yes → use **NORTA** via `simdata` package

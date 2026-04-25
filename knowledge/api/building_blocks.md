@@ -30,7 +30,8 @@ endpoint(name, type, readout = NULL, generator, ...)
 |-----------|-----------|
 | TTE, constant hazard | Any parametric distribution; ask the user |
 | TTE, piecewise-constant hazard | `PiecewiseConstantExponentialRNG` (recommended built-in) |
-| Correlated PFS + OS — 3-state illness-death model | `CorrelatedPfsAndOs3` (recommended built-in) |
+| Correlated PFS + OS — Gumbel copula, PH-compatible | `CorrelatedPfsAndOs2`: takes `median_pfs`, `median_os`, `kendall` (Kendall's tau) directly; exponential margins; safe with Cox model |
+| Correlated PFS + OS — 3-state illness-death model | `CorrelatedPfsAndOs3`: takes `h01`, `h02`, `h12` derived via `solveThreeStateModel()`; Pearson correlation; may produce time-varying HR — **not safe with Cox model** |
 | Correlated PFS + OS + tumor response — 4-state Markov model | `CorrelatedPfsAndOs4` (built-in); response is TTE — wrap to convert to binary if needed |
 | Independent non-TTE (binary, continuous, categorical) | Custom function using standard distributions (`rbinom`, `rnorm`, etc.) |
 | Correlated endpoints of any type | NORTA via `simdata`: `simdesign_norta(dist, cor_target_final)` + `simulate_data()`; works for any combination of TTE, continuous, binary, categorical as long as a quantile function exists for each marginal; returns matrix — wrap with `as.data.frame()`; add `<name>_event = 1L` for each TTE |
@@ -63,14 +64,49 @@ ep   <- endpoint(name = "pfs", type = "tte",
                  generator = PiecewiseConstantExponentialRNG,
                  risk = risk, endpoint_name = "pfs")
 
-# Correlated PFS + OS — 3-state illness-death model
-# States: stable (1) -> progressed (2) -> dead (3); also direct 1->3
-ep <- endpoint(
-  name      = c("pfs", "os"),
-  type      = c("tte", "tte"),
+# Correlated PFS + OS — CorrelatedPfsAndOs2 (Gumbel copula, PH-compatible)
+# Use when Cox model or log-rank test is planned. Takes medians and Kendall's tau directly.
+ep_ctrl <- endpoint(
+  name       = c("pfs", "os"),
+  type       = c("tte", "tte"),
+  generator  = CorrelatedPfsAndOs2,
+  median_pfs = 8,  median_os = 18, kendall = 0.6,
+  pfs_name   = "pfs", os_name = "os"
+)
+ep_exp <- endpoint(
+  name       = c("pfs", "os"),
+  type       = c("tte", "tte"),
+  generator  = CorrelatedPfsAndOs2,
+  median_pfs = 12, median_os = 24, kendall = 0.6,
+  pfs_name   = "pfs", os_name = "os"
+)
+
+# Correlated PFS + OS — CorrelatedPfsAndOs3 (3-state illness-death model, Pearson correlation)
+# WARNING: produces time-varying HR between arms — NOT compatible with Cox PH model.
+# Use solveThreeStateModel() to derive h01/h02/h12 from medians + target Pearson corr; run per arm.
+pars_ctrl <- solveThreeStateModel(
+  median_pfs = 8,  median_os = 18,
+  corr = seq(0.55, 0.65, by = 0.01), h12 = seq(0.01, 0.50, length.out = 100)
+)
+best_ctrl <- pars_ctrl[which.min(pars_ctrl$error), ]
+
+pars_exp <- solveThreeStateModel(
+  median_pfs = 12, median_os = 24,
+  corr = seq(0.55, 0.65, by = 0.01), h12 = seq(0.01, 0.50, length.out = 100)
+)
+best_exp <- pars_exp[which.min(pars_exp$error), ]
+
+ep_ctrl <- endpoint(
+  name      = c("pfs", "os"), type = c("tte", "tte"),
   generator = CorrelatedPfsAndOs3,
-  h01 = 0.11, h02 = 0.03, h12 = 0.10,
-  pfs_name = "pfs", os_name = "os"
+  h01 = best_ctrl$h01, h02 = best_ctrl$h02, h12 = best_ctrl$h12,
+  pfs_name  = "pfs", os_name = "os"
+)
+ep_exp <- endpoint(
+  name      = c("pfs", "os"), type = c("tte", "tte"),
+  generator = CorrelatedPfsAndOs3,
+  h01 = best_exp$h01, h02 = best_exp$h02, h12 = best_exp$h12,
+  pfs_name  = "pfs", os_name = "os"
 )
 
 # Correlated PFS + OS + response — 4-state Markov model
@@ -255,7 +291,12 @@ tr <- trial(
   accrual_rate = accrual
 )
 tr$add_arms(sample_ratio = c(1, 1), ctrl, exp1)
-tr$add_milestones(m_interim, m_final)
+
+l <- listener()
+l$add_milestones(m_interim, m_final)
+ctr <- controller(trial = tr, listener = l)
+ctr$run(n = 1000)
+out <- ctr$get_output()
 ```
 
 ---
@@ -361,6 +402,7 @@ listener(silent = FALSE)
 | `silent` | logical | Suppress console messages |
 
 Monitors the trial and executes action functions when milestone conditions are met.
+**Milestones are attached to the listener, not to the trial:** `l$add_milestones(m1, m2, ...)`.
 
 ---
 
@@ -377,8 +419,10 @@ controller(trial, listener)
 
 ```r
 l   <- listener()
+l$add_milestones(m_interim, m_final)   # attach milestones to listener
 ctr <- controller(trial = tr, listener = l)
-ctr$run(n_trials = 1000)
+ctr$run(n = 1000)                       # n = number of replicates (not n_trials)
+out <- ctr$get_output()                 # data.frame; one row per replicate
 ```
 
 ---

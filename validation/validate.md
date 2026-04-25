@@ -37,13 +37,13 @@ Write the generated R code to `/tmp/trial_sim_validate.R`.
 ```bash
 Rscript /tmp/trial_sim_validate.R 2>&1
 ```
-Use a small number of replicates for speed: set `n_trials = 3` during validation.
+Use a small number of replicates for speed: set `n = 3` during validation (the `run()` argument is `n`, not `n_trials`).
 
 ### Step 3: Interpret output
 
 | Output | Action |
 |--------|--------|
-| Clean run, results printed | Pass — restore `n_trials` to user's intended value |
+| Clean run, results printed | Pass — restore `n` to user's intended value |
 | `Error in ...` | Fix the error, re-run |
 | `Warning: ...` | Evaluate — warnings about units or data may be important |
 | No output / silent | Check that `trial$save()` calls exist and `get_output()` is called |
@@ -77,8 +77,8 @@ If code contains `# TODO:` or `# USER CODE PLACEHOLDER:` blocks:
 ---
 
 ## After Validation
-- Report: "Code validated successfully with `n_trials = 3`."
-- Restore `n_trials` to the user's intended value
+- Report: "Code validated successfully with `n = 3`."
+- Restore `n` to the user's intended value
 - List any remaining placeholders the user must fill
 - Offer to run a larger validation (e.g., `n_trials = 100`) if user wants a quick operating characteristics check
 

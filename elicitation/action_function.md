@@ -117,11 +117,28 @@ intermediate <- trial$get(name = "state_key")  # retrieve in later milestone
 
 ---
 
+## Dummy but Runnable Actions
+
+If the user has not specified the exact decision rule, do NOT omit the adaptive call or use a placeholder.
+Instead, generate a runnable dummy condition that:
+1. Reads from locked data (e.g., event counts, response rates)
+2. Applies a simple threshold or ranking
+3. Makes the adaptive call
+4. Is guarded against edge cases
+
+Label it clearly: `# DUMMY CONDITION — replace with actual rule`
+
+The code must run without errors. A dummy action is better than a broken or incomplete one.
+
+---
+
 ## Checklist Before Generating Code
 
 - [ ] All operating characteristics identified → mapped to `trial$save()` calls
-- [ ] All decision rules defined → translated to if/else conditions
-- [ ] All adaptation methods chosen → mapped to `trial$<method>()` calls  
+- [ ] All decision rules defined → translated to if/else conditions (or dummy if unknown)
+- [ ] All adaptation methods chosen → mapped to `trial$<method>()` calls
+- [ ] Every action calls `trial$get_locked_data()` as its first step
+- [ ] Every adaptive call is guarded against edge cases
 - [ ] User code (if any) located and wrapped
-- [ ] Placeholders inserted where user code is pending
 - [ ] At least one `trial$save()` in every non-`doNothing` action
+- [ ] Code runs end-to-end with `n_trials = 3` before returning to user

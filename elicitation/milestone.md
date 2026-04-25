@@ -88,28 +88,36 @@ Probe: "What are your key operating characteristics? Power? Type I error? Expect
 
 ## Output Template
 
+All action functions must be runnable. If the user's decision rule is not yet known,
+use a dummy but data-driven condition and label it `# DUMMY CONDITION — replace with actual rule`.
+
 ```r
-action_<milestone_name> <- function(trial, ...) {
-  
-  # --- Data access ---
-  data <- trial$get_locked_data(milestone_name = "<milestone_name>")
-  
-  # --- Analysis ---
-  # <statistical test or custom analysis>
-  
-  # --- Adaptations ---
-  # if (<condition>) {
-  #   trial$<adaptation_method>(...)
-  # }
-  
-  # --- Save results ---
-  trial$save(value = <value>, name = "<metric>")
+action_<name> <- function(trial, ...) {
+
+  # Block 1: Data access — always required
+  data <- trial$get_locked_data(milestone_name = "<name>")
+
+  # Block 2: Analysis — compute metrics from locked data
+  # fit <- fitLogrank(formula = os ~ arm, data = data, reference = "control")
+
+  # Block 3: Adaptations — guard all calls against edge cases
+  # DUMMY CONDITION — replace with actual rule
+  exp_arms     <- c("exp1", "exp2")
+  counts       <- tapply(data$os_event, data$arm, sum, na.rm = TRUE)
+  best_arm     <- names(which.max(counts[exp_arms]))
+  arms_to_drop <- setdiff(exp_arms, best_arm)
+  if (length(arms_to_drop) > 0) {
+    trial$remove_arms(arms_name = arms_to_drop)
+  }
+
+  # Block 4: Save — at least one trial$save() required
+  trial$save(value = best_arm, name = "selected_arm")
 }
 
 m_<name> <- milestone(
   name   = "<name>",
   when   = <triggering_condition>,
-  action = action_<milestone_name>
+  action = action_<name>
 )
 ```
 
