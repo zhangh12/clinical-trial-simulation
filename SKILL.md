@@ -219,8 +219,18 @@ triggers occasionally fail to fire in a replicate, producing errors
 that look like code bugs but are sample-size artifacts. If the same
 code succeeds at larger `n`, it's not a bug.
 
-If `controller$run(n_workers = K)` is needed, be conservative on a
-laptop. Don't grab all cores — leave at least one for the OS. On
-Apple Silicon, using only the performance cores typically beats using
-all cores. Start at 2-4, measure, scale up if responsive. Requires
-the `mirai` package.
+**Default `n_workers = 1`** (single process). Most simulations in
+this skill's typical territory — a few thousand replicates with
+simple endpoints — finish in seconds single-process, and the script
+is universally readable. Reach for `n_workers > 1` only when runtime
+warrants it.
+
+When `n_workers > 1` is used, pass per-call configuration through the
+package's `...` mechanism: `trial(dropout = fn, my_arg = X)`,
+`endpoint(generator = fn, my_arg = Y)`, `milestone(name, when,
+action, my_arg = Z)`. The functions then receive their arguments via
+their own signature. Don't reference script-level globals from
+inside generators / dropout / enroller / action functions — `mirai`
+workers don't share the script env and globals break. The `...`
+pattern is also the idiomatic style in the package's vignettes.
+Start at 2-4 workers on a laptop; requires the `mirai` package.
