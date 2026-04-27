@@ -66,21 +66,14 @@ Two orthogonal decisions:
     so they cannot be used for multi-endpoint calls.
 
 > **Custom data models — always on the table.** Whenever the user
-> has their own data model in mind — a specific distribution, a
-> mechanistic biological model, an empirical resampling scheme, a
-> particular copula, NORTA via `simdata::simdesign_norta`, anything
-> — help them implement it as a custom generator. Base-R RNGs and
-> the package's built-in joint generators are convenient defaults,
-> not the only options. The contract is simple: `function(n, ...)`
-> returning a `data.frame` with one column per endpoint name (plus
-> `<name>_event` columns for TTE endpoints). Anything satisfying that
-> contract works. This applies to single-endpoint calls (alternative
-> to `rexp` etc.) as well as multi-endpoint calls (alternative to
-> `CorrelatedPfsAndOs*`).
->
-> The first argument must be `n` — wrap any function that doesn't
-> already conform (e.g., `base::sample` uses `x` first). See
-> `?endpoint` and `building_blocks.md` for the contract details.
+> has their own data model (a specific distribution, mechanistic
+> model, empirical resampling, a custom copula, NORTA, anything),
+> help implement it as a custom generator. Base-R RNGs and built-in
+> joint generators are convenient defaults, not the only options.
+> The contract: `function(n, ...)` returning a `data.frame` with one
+> column per endpoint name (plus `<name>_event` columns for TTE).
+> First argument must be `n` — wrap if it isn't (e.g., `base::sample`
+> uses `x`). See `?endpoint` and `building_blocks.md` for details.
 
 Examples:
 
@@ -101,50 +94,31 @@ Examples:
 
 ### TTE — correlated PFS + OS (and response)
 
-PFS and OS are commonly modeled together in oncology. **The agent
-should ask whether the user wants the PFS-OS correlation modeled
-explicitly** before reaching for these generators.
+In oncology, PFS and OS are commonly modeled together. **First ask
+whether the user wants the PFS-OS correlation modeled explicitly.**
 
-If correlation does not need to be modeled, define PFS and OS as two
-separate `endpoint()` calls. The distribution for each is the user's
-call — ask. Common options include exponential (`rexp`), Weibull
-(`rweibull`), or piecewise-constant hazards via
-`PiecewiseConstantExponentialRNG` (e.g., for delayed treatment
-effect). Offer the options and let the user pick.
-
-If the user does want correlated PFS + OS, two built-in methods are
-available, plus the option to implement a custom joint generator if
-the user has their own data model. Present the choices in plain
-language and let the user pick:
-
-- **Gumbel copula** (`CorrelatedPfsAndOs2`). PFS and OS are joined
-  through a Gumbel copula on a latent time-to-progression and OS;
-  PFS is defined as min(TTP, OS), which guarantees PFS ≤ OS. Both
-  marginals stay exponential, so the hazard ratio between arms is
-  constant — the proportional hazards assumption holds, making this
-  the right choice when **Cox PH** is the planned analysis. Log-rank
-  is also fine (log-rank does not require PH). User specifies median
-  PFS, median OS, and Kendall's tau between observed PFS and OS. No
-  solver needed.
-
-- **Illness-death model** (`CorrelatedPfsAndOs3`). A three-state
-  Markov model: stable → progression → death (and stable → death
-  directly). Three transition hazards drive the dynamics; PFS and OS
-  emerge naturally with PFS ≤ OS by construction. The model induces
-  a **time-varying OS hazard ratio between arms**, which makes it
-  **incompatible with the Cox PH model** (the HR estimate is no longer
-  a meaningful summary). Log-rank is still valid here — it does not
-  assume PH — though it may lose power against the time-varying
-  alternative; parametric or mechanistic analyses are alternatives to
-  consider. The hazards are not intuitive to specify; derive them
-  from medians + Pearson correlation via `solveThreeStateModel()`
-  (see "Parameter solvers" below) and hardcode the literals.
-
-- **Custom joint generator.** If the user has their own PFS+OS data
-  model, implement it per the "custom data models" principle above
-  (single multi-endpoint `endpoint()` call, generator returns a
-  `data.frame` with `pfs`, `pfs_event`, `os`, `os_event`). The two
-  built-ins are common defaults, not the only options.
+- **Don't model correlation** → two separate `endpoint()` calls. The
+  distribution for each (`rexp`, `rweibull`, `PiecewiseConstantExponentialRNG`,
+  or a custom function) is the user's call — offer the options.
+- **Gumbel copula** (`CorrelatedPfsAndOs2`) → joins latent TTP and OS
+  via a Gumbel copula, defining PFS = min(TTP, OS) so PFS ≤ OS by
+  construction. Both marginals stay exponential, so the hazard ratio
+  between arms is constant — **right choice when Cox PH is the
+  planned analysis**. Log-rank also works (it does not require PH).
+  User provides median PFS, median OS, Kendall's tau. No solver.
+- **Illness-death model** (`CorrelatedPfsAndOs3`) → three-state
+  Markov model (stable → progression → death, stable → death
+  directly). Induces a **time-varying OS hazard ratio between arms**
+  → **incompatible with Cox PH** (HR estimate stops being meaningful).
+  Log-rank is still valid (no PH assumption) but may lose power
+  against the time-varying alternative; parametric or mechanistic
+  analyses are alternatives. Hazards are non-intuitive — derive from
+  medians + Pearson correlation via `solveThreeStateModel()` (see
+  "Parameter solvers") and hardcode the literals.
+- **Custom joint generator** — single multi-endpoint `endpoint()`
+  call, generator returns a `data.frame` with `pfs`, `pfs_event`,
+  `os`, `os_event`. Use whenever the user has a specific data model
+  in mind (a different copula, NORTA, mechanistic, empirical, ...).
 
 | Function | Inputs | Notes |
 |---|---|---|

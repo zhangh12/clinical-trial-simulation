@@ -62,33 +62,28 @@ milestones can trigger in either order, note it in a comment.
 
 ### Action function structure
 
-The package locks data at every milestone automatically — whether the
-action is `doNothing` or custom. `trial$get_locked_data(milestone_name)`
-**retrieves** that locked snapshot for inspection; it does not trigger
-the lock. So an action that doesn't need to read the data (e.g., a
-pure save of a precomputed value, or an adaptation that depends only
-on accumulated calendar time) can skip the `get_locked_data` call.
-
+Data is locked automatically at every milestone; `trial$get_locked_data()`
+only **retrieves** the snapshot when the action needs to inspect it.
 Typical shape for a non-`doNothing` action:
 
 ```r
 action_<name> <- function(trial, ...) {
-  # 1. (Optional) retrieve locked data if the action needs it
+  # 1. (Optional) retrieve locked data
   data <- trial$get_locked_data(milestone_name = "<name>")
 
-  # 2. Analysis — statistical test or derived quantities (skip if not needed)
+  # 2. Analysis — skip if not needed
 
-  # 3. Adaptations — any combination of trial$*() methods, guarded against edge cases
+  # 3. Adaptations — guarded trial$*() calls
 
   # 4. Save — at least one trial$save() per non-doNothing action
   trial$save(value = <value>, name = "<metric>")
 }
 ```
 
-Action signature is `function(trial, ...)`. Use distinct `name` values
-across `trial$save()` calls. To pass state between milestones, use
-`trial$save_custom_data(value, name, overwrite = TRUE)` and
-`trial$get(name)` (see helpers.md gotchas).
+Signature is `function(trial, ...)`. Use distinct `name`s across
+`trial$save()` calls. For state between milestones use
+`trial$save_custom_data(..., overwrite = TRUE)` + `trial$get(name)`
+(see helpers.md gotchas).
 
 ## R6 method visibility — only use the documented public methods
 
@@ -145,25 +140,21 @@ doubt, check the help-doc method list — that is the contract.
 
 ### Two user modes
 
-Detect mode from input shape, not just content.
+Detect from input shape, not content.
 
-**Exploration mode** — user describes a setting in prose. They may or
-may not have a design in mind. Listen for clues (multiple arms with
-selection? randomization changes? added arms mid-trial? rescue
-therapy?). Don't lock onto a design too fast. When enough information
-has accumulated, propose 2-3 candidate designs, contrast them
-briefly, and let the user pick.
+**Exploration mode** — user describes a setting in prose, may or may
+not have a design in mind. Don't lock onto a design too fast. When
+enough has accumulated, propose 2-3 candidate designs, contrast them
+briefly, let the user pick. If the user has nothing to say, prompt
+for orientation (therapeutic area, primary research question,
+regulatory context, prior data) — a few anchors, not an
+interrogation.
 
-If the user has nothing to say, prompt for orientation: therapeutic
-area, primary research question, regulatory context, prior data
-available. Three or four anchors is enough — don't interrogate.
-
-**Implementation mode** — user pastes a structured spec or bullet
-list with parameters. They have the design. Map their inputs to
-building blocks, **explicitly call out unused inputs** ("you mentioned
-X — I didn't use it; where does it fit?"), and ask for missing pieces
-with one sentence of why each is needed. Silently dropping
-user-supplied information is a trust killer.
+**Implementation mode** — user pastes a spec with parameters. Map
+to building blocks, **explicitly call out unused inputs** ("you
+mentioned X — I didn't use it; where does it fit?"), and ask for
+missing pieces with one sentence of why each matters. Silently
+dropping user-supplied information is a trust killer.
 
 ### Plain language for argument collection
 
@@ -208,64 +199,28 @@ Two confirmation gates before any expensive work:
 
 ## Error-handling stance
 
-When code errors:
-
-1. Read the message — TrialSimulator's messages are usually specific.
-2. Consult `?<function>` for plain functions (`endpoint`, `arm`,
-   `trial`, `milestone`, `listener`, `controller`, `regimen`, the
-   `fit*` wrappers, the `solve*` helpers, etc.). For R6 methods on
-   `Trials` and `Controllers`, `?<method>` does not work — use
-   `?Trials` / `?Controllers` and look up the method, or browse the
-   pkgdown reference page.
-3. Consult the pkgdown vignettes:
-   https://zhangh12.github.io/TrialSimulator/articles/
-4. Don't disable a check to make an error go away.
+Read the message — TrialSimulator's are usually specific. Consult
+`?<function>` for plain functions; for R6 methods on `Trials` /
+`Controllers`, use `?Trials` / `?Controllers` (method-level `?` does
+not work) or the pkgdown reference page. Vignettes live at
+https://zhangh12.github.io/TrialSimulator/articles/. Don't disable a
+check to make an error go away.
 
 ## Iteration and runtime
 
-Three-stage testing:
+Validate iteratively: sanity at `n = 3-5` to catch real errors, a
+short calibration at `n = 20-50` to estimate per-replicate cost, then
+production at the size the operating characteristics require (1000+
+for power; 10000+ for Type I error). Re-source the script between
+runs rather than reusing a controller.
 
-- **Sanity** at `n = 3-5`: catches signature errors, formula
-  mismatches, namespace conflicts. Note: with `n` this small,
-  stochastic milestone triggers occasionally fail to fire in a
-  replicate, producing errors that *look like* code bugs but are
-  sample-size artifacts. If the same code at larger `n` succeeds,
-  it's not a bug.
-- **Calibration** at `n = 20-50` with `system.time()`: estimate
-  per-replicate cost. Decide whether the production size is feasible
-  on the available hardware.
-- **Production** at the size the operating characteristics need.
-  Confirm with the user — power studies typically want 1000+
-  replicates; Type I error studies want more (10000+) for stable
-  estimates.
+One TS-specific quirk: at very small `n`, stochastic milestone
+triggers occasionally fail to fire in a replicate, producing errors
+that look like code bugs but are sample-size artifacts. If the same
+code succeeds at larger `n`, it's not a bug.
 
-The final delivered script contains a single production `controller$run()`
-call. While iterating during development, simplest is to re-source the
-script for each new run rather than reusing a controller across calls.
-
-If runtime warrants `controller$run(n_workers = K)`, **be conservative
-on a laptop**:
-- Don't grab all cores. Leave at least one core free for the OS so
-  the user's machine stays responsive.
-- On Apple Silicon, performance and efficiency cores are not
-  interchangeable; using only the performance cores typically beats
-  using all cores.
-- Start at `n_workers = 2-4`, measure, scale up if the machine stays
-  responsive.
-- Requires the `mirai` package; install it if not present.
-
-## Workflow summary
-
-1. Listen. Ask anchor questions if user is empty-handed.
-2. Mode A: discover design through conversation, propose 2-3 options,
-   user picks. Mode B: map user's spec to building blocks, flag
-   unused/missing inputs.
-3. Identify operating characteristics the user wants. Each one
-   becomes a `trial$save()` call somewhere.
-4. Walk the build order. Collect arguments in plain language.
-5. Confirm parameter table. Confirm save plan.
-6. Write the script. Use TS-provided functions where applicable.
-7. Sanity run at small `n`. Fix until clean.
-8. Calibration run for runtime estimate.
-9. Production run.
-10. Write the report (see `report.md`).
+If `controller$run(n_workers = K)` is needed, be conservative on a
+laptop. Don't grab all cores — leave at least one for the OS. On
+Apple Silicon, using only the performance cores typically beats using
+all cores. Start at 2-4, measure, scale up if responsive. Requires
+the `mirai` package.
