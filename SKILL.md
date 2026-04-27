@@ -219,6 +219,19 @@ triggers occasionally fail to fire in a replicate, producing errors
 that look like code bugs but are sample-size artifacts. If the same
 code succeeds at larger `n`, it's not a bug.
 
+### Output organization
+
+Create a dedicated folder for each simulation run — the script, the
+saved output (`.rds`), the report (`.md` and rendered `.html`), and
+any plots all go in that folder. A common convention is
+`runs/<trial_name>/` or just `<trial_name>/` at the project root, with
+files named consistently inside (`sim.R`, `report.md`, `output.rds`,
+`milestone_times.png`, etc.). This keeps the project root clean,
+makes side-by-side comparison of design variants trivial, and means
+the user can zip a single folder to share results.
+
+### Parallelism
+
 **Default `n_workers = 1`** (single process). Most simulations in
 this skill's typical territory — a few thousand replicates with
 simple endpoints — finish in seconds single-process, and the script

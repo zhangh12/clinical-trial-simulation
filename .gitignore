@@ -11,3 +11,11 @@
 
 # macOS
 .DS_Store
+
+# Per-trial simulation output (agent creates these in dedicated folders or
+# at the root during testing; not part of the skill itself)
+/runs/
+/output/
+/pfs_gs_*
+/Rplots.pdf
+/milestone_times.*
