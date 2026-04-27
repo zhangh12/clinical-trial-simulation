@@ -161,13 +161,26 @@ auditability.
 
 ## Output format
 
-Default: a single Markdown document the user can read alongside the
-script. If the user has a preferred format (HTML via `rmarkdown`, a
-Quarto doc, an internal report template), ask early and use that.
+Default: write the report as Markdown, render it to HTML alongside,
+and open the HTML in the user's default browser when ready.
 
-Save the report to a path next to the simulation script. A common
-convention: `<trial_name>_report.md` adjacent to
-`<trial_name>_sim.R`.
+```r
+Rscript -e 'markdown::mark_html("report.md", output = "report.html"); browseURL("report.html")'
+```
+
+`markdown::mark_html()` is what RStudio's Markdown Preview button
+uses, so the rendered HTML matches the style the user is already
+familiar with. The HTML is the user's primary view; the `.md` is
+the source of truth for any edits.
+
+Place the report in the per-trial output folder (see SKILL.md
+"Output organization") with consistent filenames — `report.md` /
+`report.html` is the suggested default.
+
+If the user explicitly wants a different format (Quarto,
+`rmarkdown::render` with a custom template, an internal corporate
+template), ask early and use that instead. The default above is for
+when the user has not specified.
 
 ## Editing this file
 
