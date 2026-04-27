@@ -36,6 +36,24 @@ parameters used, (c) caveats inline if any.
 9. Caveats and limitations        — placeholders, stubs, helper-dependencies
 ```
 
+The build-order sections that have a clear *design* meaning (3-7)
+each pair a code block with explanation. **The listener and the
+`controller(...) / controller$run()` calls are plumbing — omit them
+from the report.** They are identical across designs and add noise to
+the audit trail.
+
+### Code style in the report
+
+Code blocks in the report are for review, not just illustration. Two
+rules:
+
+- **One statement per line.** Never chain with `;`. A reviewer must
+  be able to scan the code block top to bottom and comment on
+  individual lines.
+- **Show the code as it actually appears in the script** — same
+  variable names, same arguments, same line breaks. The report is
+  the script narrated, not a paraphrase.
+
 ### 1. Why this design
 
 A short paragraph (3-6 sentences) capturing the reasoning that led to
@@ -110,20 +128,25 @@ Per milestone:
 
 ### 7. Action functions
 
-Per action function (more detail than §6):
-- Show the action body.
-- Substructure:
-  - **Trigger** — restate from §6.
-  - **Data lock** — what `get_locked_data` returns at this point;
-    which arms / endpoints are populated.
-  - **Analysis** — which test, which wrapper, why this choice. **If
-    a stub for a combination/group-sequential test, flag it
-    prominently.**
-  - **Adaptation** — which `trial$*()` methods are called, with the
-    rule. **If a dummy rule, flag it: "DUMMY: replace with actual
-    rule."**
-  - **What gets saved** — each `trial$save()` mapped to which
-    operating characteristic it supports.
+**Show the full body of each action function** as a code block —
+verbatim from the script, one statement per line. Prose summaries
+are not enough for QC; the reviewer needs to see the actual logic.
+
+After (not before) the code block, add a short narrative covering:
+
+- **Trigger** — restate from §6.
+- **Data lock** — what `get_locked_data` returns at this point;
+  which arms / endpoints are populated.
+- **Analysis** — which test, which wrapper, why this choice. **If
+  a stub for a combination/group-sequential test, flag it
+  prominently.**
+- **Adaptation** — which `trial$*()` methods are called, with the
+  rule. **If a dummy rule, flag it: "DUMMY: replace with actual
+  rule."**
+- **What gets saved** — each `trial$save()` mapped to which
+  operating characteristic it supports.
+
+The narrative annotates the code block; it does not replace it.
 
 ### 8. Operating characteristics
 
