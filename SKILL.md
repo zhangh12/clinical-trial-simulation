@@ -35,6 +35,18 @@ user to fill in parameters. Listen, identify what the user wants to
 learn, identify which blocks are needed to answer it, then collect
 the arguments those blocks need.
 
+**A second principle the agent must internalize: the simulation
+never actually stops a trial early.** Every replicate runs through
+all milestones in chronological order, regardless of any "stopping"
+rule. Early stopping is a post-hoc concept derived from decision
+flags the user saves at adaptive milestones — see `helpers.md` for
+the gotcha and the post-processing pattern. This decoupling is
+intentional: one simulation scores multiple stopping rules without
+re-running. It also means stopping-aware operating characteristics
+(early-stop probability, expected duration / sample size accounting
+for stopping) must be computed from saved flags, not from
+`milestone_time_<final>` alone.
+
 ## Build order
 
 Always assemble in this order. Each step depends on the previous.

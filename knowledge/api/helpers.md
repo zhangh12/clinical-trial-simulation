@@ -314,6 +314,39 @@ selected <- trial$get(name = "selected")
 if (is.null(selected)) selected <- "<fallback>"
 ```
 
+### Trials never stop early in simulation
+
+Every replicate runs through all milestones in chronological order,
+regardless of any "stopping" rule. TrialSimulator does not bind a
+stopping decision to the trial flow — that decision is post-hoc,
+derived from rejection / decision flags the user saves at adaptive
+milestones. This is intentional: one simulation can score multiple
+stopping rules without re-running.
+
+Implication: when the user asks for stopping-aware operating
+characteristics, save the decision at each adaptive milestone and
+derive the metrics in post-processing.
+
+```r
+# In the interim action: save the decision flag.
+trial$save(value = as.integer(p_interim <= bound), name = "reject_interim")
+
+# Post-simulation: derive actual stopping time and metrics.
+stop_time <- ifelse(out$reject_interim == 1,
+                    out[["milestone_time_<interim>"]],
+                    out[["milestone_time_<final>"]])
+
+mean(stop_time)               # expected duration accounting for early stopping
+mean(out$reject_interim)      # early-stop probability for efficacy
+```
+
+`mean(out[["milestone_time_<final>"]])` alone reports the duration
+*if every replicate ran to final* — fine for non-binding interim
+reporting, misleading when early stopping binds. The same logic
+applies to expected sample size, dose-selection timing, futility
+stopping, and any other adaptation: save the decision flags
+explicitly, then compose them in post-processing.
+
 ### `dunnettTest` formula must use `Surv(time, event) ~ arm`
 
 For TTE endpoints. `time ~ arm` errors with "Response must be a
