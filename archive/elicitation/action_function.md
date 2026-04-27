@@ -6,6 +6,8 @@ Design the body of each `action(trial, ...)` function completely enough to gener
 This guide is used alongside `milestone.md` — milestone.md identifies *which* milestones exist;
 this guide goes deep on *what happens inside* each action function.
 
+> **Read `knowledge/api/auto_outputs.md` first** — many "metrics" (trial duration, event counts, per-arm sample sizes) are auto-saved by the controller at every triggered milestone. Don't redundantly save them via `trial$save()`.
+
 ---
 
 ## Core Concepts to Establish Early
@@ -132,13 +134,31 @@ The code must run without errors. A dummy action is better than a broken or inco
 
 ---
 
+## Cross-Milestone State
+
+Use `trial$save_custom_data()` + `trial$get()` for arbitrary objects (lists, vectors) within a single replicate. Use `trial$bind()` to row-accumulate a data.frame across milestones (useful for collecting per-stage statistics tested together at the final action with `GraphicalTesting`). Both reset between replicates. Always guard `trial$get()` with a NULL check — the saving milestone may not have fired (e.g., very small trial).
+
+## Treatment Switching (Pre-Trial Setup, Not in Action)
+
+If the design includes treatment switching via `regimen()`, the regimen is registered **before any action runs** and **before `add_arms()`**:
+
+```r
+tr <- trial(...)
+tr$add_regimen(reg)                      # <-- BEFORE add_arms; package errors otherwise
+tr$add_arms(sample_ratio = c(...), ...)
+```
+
+Inside action functions you can use `expandRegimen(data)` to convert the compact `regimen_trajectory` column into one row per regimen segment per patient.
+
 ## Checklist Before Generating Code
 
-- [ ] All operating characteristics identified → mapped to `trial$save()` calls
+- [ ] All operating characteristics identified → mapped to `trial$save()` calls (and noted which are auto-saved instead)
 - [ ] All decision rules defined → translated to if/else conditions (or dummy if unknown)
 - [ ] All adaptation methods chosen → mapped to `trial$<method>()` calls
 - [ ] Every action calls `trial$get_locked_data()` as its first step
-- [ ] Every adaptive call is guarded against edge cases
+- [ ] Every adaptive call is guarded against edge cases (length > 0, arm exists, value > current)
 - [ ] User code (if any) located and wrapped
 - [ ] At least one `trial$save()` in every non-`doNothing` action
-- [ ] Code runs end-to-end with `n_trials = 3` before returning to user
+- [ ] If using `dunnettTest`, `planned_info = "default"` (not `"oracle"`)
+- [ ] If using `regimen`, `add_regimen()` precedes `add_arms()`
+- [ ] Code runs end-to-end with `n = 3` before returning to user

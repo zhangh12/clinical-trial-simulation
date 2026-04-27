@@ -9,8 +9,11 @@ Load when main agent has identified a seamless II/III pattern:
 ## Knowledge to Load
 - `knowledge/patterns/seamless.md` — full pattern spec and action function templates
 - `knowledge/api/building_blocks.md`
-- `knowledge/api/trial_methods.md`
+- `knowledge/api/trial_methods.md` — note: `dunnettTest(planned_info = "default")`, NOT `"oracle"`
+- `knowledge/api/auto_outputs.md`
+- `knowledge/api/helpers.md`
 - `elicitation/data_generator.md`
+- `elicitation/parameter_determination.md`
 - `elicitation/action_function.md`
 
 ## Elicitation Checklist

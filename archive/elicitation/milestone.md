@@ -3,6 +3,8 @@
 ## Goal
 Collect information to write each `milestone(name, when, action)` and its action function body.
 
+> **Reminder:** every triggered milestone auto-saves `milestone_time_<name>`, `n_events_<milestone>_<endpoint>`, `n_events_<milestone>_<patient_id>`, and `n_events_<milestone>_<arms>`. **Don't redundantly save these.** See `knowledge/api/auto_outputs.md`.
+
 ---
 
 ## Step 1: Identify All Milestones
@@ -77,6 +79,8 @@ Probe: "What are your key operating characteristics? Power? Type I error? Expect
 | Actual sample size | `trial$save(value = trial$get_locked_data(milestone_name = ...) \|> nrow(), name = "n")` |
 | Trial duration | `trial$save(value = milestone_time, name = "duration")` |
 | Custom metric | `trial$save(value = value, name = "metric_name")` |
+
+> **Don't manually save** `milestone_time_*` or `n_events_*` — auto-saved at every milestone. To compute mean trial duration: `mean(out[["milestone_time_<final>"]])`.
 
 ### 3e: User-provided code
 "Do you have any custom code to run at this milestone?"

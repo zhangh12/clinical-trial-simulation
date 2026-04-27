@@ -60,7 +60,10 @@ action_interim <- function(trial, ...) {
   # new_n    <- ceiling(<n_events_final> / max(obs_rate, 0.01))
   # trial$resize(n_patients = max(new_n, <total_n_patients>))
 
-  trial$save_custom_data(value = best_arm, name = "selected_arm")
+  # Use distinct names for save_custom_data (within-replicate) and save (cross-replicate)
+  # — they share a namespace; collisions error. Always set overwrite = TRUE on
+  # save_custom_data so the registry resets between replicates.
+  trial$save_custom_data(value = best_arm, name = "selected", overwrite = TRUE)
   trial$save(value = best_arm, name = "selected_arm")
 }
 ```
@@ -70,16 +73,16 @@ action_interim <- function(trial, ...) {
 ```r
 action_final <- function(trial, ...) {
   data     <- trial$get_locked_data(milestone_name = "final")
-  selected <- trial$get(name = "selected_arm")
+  selected <- trial$get(name = "selected")
   if (is.null(selected)) selected <- "exp1"  # guard for edge cases
 
   dt <- trial$dunnettTest(
-    formula      = os ~ arm,
+    formula      = Surv(os, os_event) ~ arm,   # TTE formula MUST use Surv()
     placebo      = "control",
     treatments   = selected,
     milestones   = c("interim", "final"),
-    alternative  = "greater",
-    planned_info = "oracle"
+    alternative  = "less",                     # "less" = lower hazard in treatment is good
+    planned_info = "default"  # see knowledge/api/trial_methods.md for "default" vs pre-fixed data.frame
   )
 
   result <- trial$closedTest(

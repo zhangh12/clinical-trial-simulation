@@ -30,6 +30,7 @@ Skip entirely if all endpoints are TTE.
 → Output: a function `generator(n, ...)` returning a data.frame with:
   - Columns named exactly as `name` values
   - For TTE endpoints: additional column `<ep_name>_event` (1 = event, 0 = censored)
+→ If user input requires conversion (medians+correlation, landmark survival probs, mixture, dropout rates at landmarks), see `elicitation/parameter_determination.md` to invoke the right helper from `knowledge/api/helpers.md` BEFORE writing the script.
 
 ---
 
@@ -59,4 +60,5 @@ ep <- endpoint(
 - Each arm typically has its own `endpoint()` call with its own generator (different treatment effects)
 - Control arm and experimental arm(s) share endpoint *names* and *types* but have different generators
 - A single `endpoint()` can bundle multiple endpoints if they share a generator (e.g., correlated PFS + OS)
-- Built-in generators available: `PiecewiseConstantExponentialRNG()`, `CorrelatedPfsAndOs3()`, `CorrelatedPfsAndOs4()`, `rconst()`, `StaggeredRecruiter()` (for enroller)
+- Built-in generators available: `PiecewiseConstantExponentialRNG()`, `CorrelatedPfsAndOs2()` (Gumbel copula, PH-compatible), `CorrelatedPfsAndOs3()` (3-state model), `CorrelatedPfsAndOs4()` (4-state model with response), `rconst()`, `StaggeredRecruiter()` (for enroller)
+- Parameter-determination helpers (called once *outside* the simulation script and hardcoded): `solveThreeStateModel()`, `solveMixtureExponentialDistribution()`, `solvePiecewiseConstantExponentialDistribution()`, `weibullDropout()`, `qPiecewiseExponential()`. See `knowledge/api/helpers.md`.

@@ -4,6 +4,8 @@
 Design a generator function `function(n, ...)` for each arm × endpoint combination.
 Default to the simplest model that fits; escalate complexity only if user requires it.
 
+> **See `elicitation/parameter_determination.md` for the full decision flowchart from clinical inputs (medians, response rates, correlations, landmark survival/dropout probabilities) to the appropriate helper function in `knowledge/api/helpers.md`.** This guide focuses on choosing distribution families; that guide handles parameter conversion.
+
 ---
 
 ## Decision Tree by Endpoint Type
@@ -103,35 +105,43 @@ ep_exp <- endpoint(
 
 #### CorrelatedPfsAndOs3 — 3-state illness-death model (Pearson correlation)
 
-`solveThreeStateModel()` finds h01/h02/h12 matching the user's medians and target Pearson correlation.
-Run it once per arm; pick the row with minimum `error`.
+`solveThreeStateModel()` is slow (numerical optimization) — **never include it in the simulation script.**
+Use a two-step workflow: run the helper once interactively to find h values, then hardcode the numbers.
+
+**Step 1 — agent runs `solveThreeStateModel()` via Rscript before writing the simulation script:**
+
+Once medians and target Pearson correlation are known, execute this in a temp file:
 
 ```r
-# Control arm: derive h01, h02, h12
-pars_ctrl <- solveThreeStateModel(
+library(TrialSimulator)
+pars <- solveThreeStateModel(
   median_pfs = <median_pfs_ctrl>,
   median_os  = <median_os_ctrl>,
   corr       = seq(<target_pearson> - 0.05, <target_pearson> + 0.05, by = 0.01),
   h12        = seq(0.01, 0.50, length.out = 100)
 )
-best_ctrl <- pars_ctrl[which.min(pars_ctrl$error), ]
+best <- pars[which.min(pars$error), ]
+print(best)
+```
 
-# Experimental arm: derive h01, h02, h12
-pars_exp <- solveThreeStateModel(
-  median_pfs = <median_pfs_exp>,
-  median_os  = <median_os_exp>,
-  corr       = seq(<target_pearson> - 0.05, <target_pearson> + 0.05, by = 0.01),
-  h12        = seq(0.01, 0.50, length.out = 100)
-)
-best_exp <- pars_exp[which.min(pars_exp$error), ]
+Run via `Rscript` (same as validation). Repeat for each arm. Then show the user the selected row and explain:
+- `h01`: transition rate from stable → progression
+- `h02`: direct death rate from stable state
+- `h12`: death rate after progression
+- `corr`: the Pearson correlation achieved (should be close to target)
 
+**Step 2 — simulation script (hardcoded literals from step 1):**
+
+The simulation script contains no `solveThreeStateModel()` call — only the resolved numbers.
+
+```r
 ep_ctrl <- endpoint(
   name      = c("pfs", "os"),
   type      = c("tte", "tte"),
   generator = CorrelatedPfsAndOs3,
-  h01      = best_ctrl$h01,
-  h02      = best_ctrl$h02,
-  h12      = best_ctrl$h12,
+  h01      = <h01_ctrl>,  # derived: stable→progression rate, control
+  h02      = <h02_ctrl>,  # derived: direct death rate, control
+  h12      = <h12_ctrl>,  # derived: post-progression death rate, control
   pfs_name = "pfs",
   os_name  = "os"
 )
@@ -140,9 +150,9 @@ ep_exp <- endpoint(
   name      = c("pfs", "os"),
   type      = c("tte", "tte"),
   generator = CorrelatedPfsAndOs3,
-  h01      = best_exp$h01,
-  h02      = best_exp$h02,
-  h12      = best_exp$h12,
+  h01      = <h01_exp>,
+  h02      = <h02_exp>,
+  h12      = <h12_exp>,
   pfs_name = "pfs",
   os_name  = "os"
 )

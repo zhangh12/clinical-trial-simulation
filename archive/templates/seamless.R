@@ -50,7 +50,10 @@ action_interim <- function(trial, ...) {
     trial$remove_arms(arms_name = arms_to_drop)
   }
 
-  trial$save_custom_data(value = best_arm, name = "selected_arm")
+  # Distinct names: save_custom_data (within-replicate) and save (cross-replicate)
+  # share a namespace; collisions error. overwrite = TRUE keeps replicate 2+ from
+  # erroring on the persistent name registry.
+  trial$save_custom_data(value = best_arm, name = "selected", overwrite = TRUE)
   trial$save(value = best_arm, name = "selected_arm")
 }
 
@@ -58,15 +61,25 @@ action_interim <- function(trial, ...) {
 
 action_final <- function(trial, ...) {
   data     <- trial$get_locked_data(milestone_name = "final")
-  selected <- trial$get(name = "selected_arm")
+  selected <- trial$get(name = "selected")
+  if (is.null(selected)) selected <- "exp1"   # fallback if interim never ran
+
+  # planned_info MUST be a data.frame with rows = milestones and cols = c(placebo, surviving treatments).
+  # "default" only works when patients are still being randomized between milestones; pre-fix
+  # the data.frame for FWER-controlled simulation OR when enrollment finishes before interim.
+  planned <- setNames(
+    data.frame(c(<n_events_interim_per_arm>, <n_events_final_per_arm>),
+               c(<n_events_interim_per_arm>, <n_events_final_per_arm>)),
+    c("control", selected))
+  rownames(planned) <- c("interim", "final")
 
   dt <- trial$dunnettTest(
-    formula      = os ~ arm,
+    formula      = Surv(os, os_event) ~ arm,   # TTE formula MUST use Surv()
     placebo      = "control",
     treatments   = selected,
     milestones   = c("interim", "final"),
-    alternative  = "greater",
-    planned_info = "oracle"
+    alternative  = "less",                     # "less" = lower hazard in treatment is good
+    planned_info = planned                     # use "default" only when enrollment overlaps milestones
   )
 
   result <- trial$closedTest(

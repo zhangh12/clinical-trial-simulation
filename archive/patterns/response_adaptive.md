@@ -97,8 +97,10 @@ action_final <- function(trial, ...) {
   # For TTE primary: use fitLogrank() or fitCoxph()
   d_test <- data[data$arm %in% c("control", "exp1") & !is.na(data$response), ]
   if (nrow(d_test) > 0 && length(unique(d_test$arm)) == 2) {
-    fit <- fitLogistic(formula = response ~ arm, data = d_test)
-    trial$save(value = as.integer(fit$p.value < 0.025), name = "reject_h0")
+    fit <- fitLogistic(formula = response ~ arm, placebo = "control",
+                       data = d_test, alternative = "greater",
+                       scale = "risk difference")
+    trial$save(value = as.integer(fit$p[fit$arm == "exp1"] < 0.025), name = "reject_h0")
   } else {
     trial$save(value = NA_integer_, name = "reject_h0")
   }
