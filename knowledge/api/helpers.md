@@ -94,8 +94,21 @@ Examples:
 
 ### TTE — correlated PFS + OS (and response)
 
+> **Names are not the model.** The `pfs_name` / `os_name` arguments
+> (and `death_name` / `progression_name` / `response_name` for
+> `CorrelatedPfsAndOs4`) rename the output columns. The generators
+> are structurally about a "shorter, possibly-progressive event"
+> bounded above by a "longer, absorbing event" — recognize this
+> pattern wherever it appears, not only oncology PFS/OS. Examples:
+> time-to-relapse vs. time-to-death (hematology), time-to-MACE vs.
+> time-to-all-cause mortality (CV), time-to-disability-progression
+> vs. time-to-death (neurology), time-to-first-event vs.
+> time-to-fatal-event in any composite-endpoint trial. If the user's
+> endpoint pair has the structural PFS ≤ OS relationship, these
+> generators apply with renamed columns.
+
 In oncology, PFS and OS are commonly modeled together. **First ask
-whether the user wants the PFS-OS correlation modeled explicitly.**
+whether the user wants the correlation modeled explicitly.**
 
 - **Don't model correlation** → two separate `endpoint()` calls. The
   distribution for each (`rexp`, `rweibull`, `PiecewiseConstantExponentialRNG`,
