@@ -190,6 +190,17 @@ Two confirmation gates before any expensive work:
 ## Code quality
 
 - **Named arguments everywhere.** Never positional.
+- **Inline parameter values at the call site; don't hoist them as
+  named variables.** `endpoint(rate = log(2)/60)` over a hoisted
+  `median_pfs_placebo <- 60` referenced thirty lines later. The
+  package is designed so each block carries its parameters visibly
+  — hoisting forces QC reviewers to scroll and chase definitions.
+  Use a comment at the call site (or prose in the report) for any
+  "why this value" context. **Exception**: structurally complex
+  values (an `accrual_rate` data.frame, a piecewise `risk` table for
+  `PiecewiseConstantExponentialRNG`) — define those immediately
+  above the call that consumes them. Adjacent is fine; far away is
+  not.
 - **Prefer TrialSimulator-provided functions** over base R or external
   packages when both can do the job. See `helpers.md` for the
   catalog. The package's design intent is that you reach for its
