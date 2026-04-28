@@ -228,12 +228,16 @@ downstream `trial$save()` clean.
 > When in doubt, ask: "Higher values of this endpoint mean
 > treatment is working — yes or no?"
 
-For combination, group-sequential, or graphical tests
-(`independentIncrement`, `dunnettTest`, `closedTest`,
-`GroupSequentialTest`, `GraphicalTesting`): **stub them for now** with
-a small function returning a plausible structure (p-value, estimate,
-decision). See `SKILL.md` for the stub convention. The package author
-will provide guidance for these later.
+For combination tests, graphical testing, group-sequential
+boundaries, and other multiplicity procedures, see the
+**"Testing and multiplicity"** section in `SKILL.md`. It covers when
+to use the package's `dunnettTest` + `closedTest` (seamless /
+dose-selection), the `GraphicalTesting` class, hierarchical and
+Bonferroni alternatives, and when to fall back to `rpact` /
+`gsDesign` for boundaries. Read the package's worked examples
+(`?<class>` and the `adaptiveDesign` / `actionFunctions` vignettes)
+before writing — the APIs are concrete and easier from a worked
+example than from prose.
 
 ---
 

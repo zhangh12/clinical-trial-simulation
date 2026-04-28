@@ -126,6 +126,11 @@ calls for that kind of operation.
   `$update_generator(arm_name, endpoint_name, generator, ...)`,
   `$add_arms(sample_ratio, ...)` (mid-trial; same method as setup, used
   for adaptive arm addition like dose-ranging, basket, or platform designs)
+- *Combination test in actions, for seamless / dose-selection designs*:
+  `$dunnettTest(formula, placebo, treatments, milestones, alternative,
+  planned_info, ...)`, `$closedTest(dunnett_test, treatments, milestones,
+  alpha, alpha_spending)`. Read the `adaptiveDesign` vignette for the
+  worked example.
 
 Do not reach for an adaptive method unless the user's design
 explicitly involves that adaptation. A fixed design uses only the
@@ -211,14 +216,96 @@ Two confirmation gates before any expensive work:
   with actual rule`. Guard against edge cases (`length() > 0` before
   `remove_arms`, etc.). A dummy that runs is better than a TODO that
   blocks validation.
-- **Stub combination / group-sequential / graphical tests for now.**
-  This skill does not yet cover those (`independentIncrement`,
-  `dunnettTest`, `closedTest`, `GroupSequentialTest`,
-  `GraphicalTesting`). When a real design needs one, write a small
-  stub that returns a plausible structure (p-value, estimate,
-  decision) so the trial wiring is exercised, and label it: `# STUB:
-  replace with real combination test`. The author of TrialSimulator
-  will add guidance for these later.
+## Testing and multiplicity
+
+Two intertwined concerns: how to compute decision boundaries when a
+hypothesis is tested under group-sequential design, and how to
+control familywise error when more than one hypothesis is tested.
+
+### Computing boundaries (group sequential)
+
+For standard GSD with a single hypothesis (single endpoint, single
+arm pair, alpha-spending function such as OBF / Pocock / asUser),
+compute boundaries with **`rpact`** or **`gsDesign`** — ask the user
+which they prefer (organizations often standardize on one; both are
+regulator-trusted).
+
+**First judge whether the boundary is constant across replicates.**
+If the milestone trigger fixes the information fraction (e.g.,
+"interim after N events" with planned final at M events → IF = N/M
+is deterministic), the boundary is identical in every replicate:
+compute ONCE in a separate `Rscript` step, present the result for
+sign-off, and hardcode the literal into the action function (which
+compares log-rank z or p against it). **Never call `rpact` /
+`gsDesign` inside an action when the boundary is constant** — that
+re-runs per replicate for nothing.
+
+When the milestone trigger does not deterministically fix the
+information fraction for every endpoint being tested (e.g., the
+trigger is event-driven on OS but PFS is also tested at each
+milestone), **standard regulatory practice is to use pre-specified
+information fractions from the protocol** — not the realized
+observed information. Pre-specified IFs are constant across
+replicates, so the once-and-hardcode rule still applies; ask the
+user for the protocol-specified IFs and compute each endpoint's
+boundaries using them.
+
+The one genuinely per-replicate case is **over-/under-running
+adjustment at the final analysis**, where the protocol prescribes
+recomputing the final boundary from the observed final information.
+When required, the action calls the boundary tool per replicate at
+the final milestone — accept the cost. For the interim and any
+non-final milestone, pre-specified IFs apply.
+
+The package's `GroupSequentialTest` class is still out of scope
+until the author provides guidance; `rpact` / `gsDesign` is the
+workaround.
+
+### Multiplicity across hypotheses
+
+**When more than one hypothesis is tested — multiple endpoints,
+multiple arms, or both — surface the multiplicity question before
+writing the action.** Don't silently default to per-test alpha.
+
+Procedures, in roughly increasing complexity:
+
+1. **Bonferroni split.** Simplest defensible default. Ask the user
+   for the alpha share per hypothesis (e.g., 0.5% PFS + 2% OS for
+   total α = 2.5%). If group sequential is also used per endpoint,
+   the per-endpoint alpha is split across stages via that endpoint's
+   own boundary calculation (see "Computing boundaries" above). The
+   information fraction may or may not be event-driven per endpoint
+   — a PFS interim triggered by event count vs. an OS interim
+   triggered by enrollment time give different IFs. Custom alpha-
+   spending functions may be needed; ask the user.
+
+2. **Hierarchical / fixed-sequence (gatekeeping).** Endpoints in a
+   pre-specified order; test each at full alpha; stop at the first
+   non-rejection. Technically a special case of graphical testing
+   but worth reaching for on its own when the order is clear.
+
+3. **Graphical testing** (Maurer-Bretz). Alpha flows between
+   hypotheses via a pre-specified transition graph. Use the built-in
+   `GraphicalTesting` class. **Read the example in `?GraphicalTesting`
+   or the pkgdown reference page before writing** — the API is
+   concrete and easier to follow from a worked example than from
+   prose. Pair with `trial$bind()` to accumulate per-stage stats
+   across milestones and call `gt$test(stats)` once in the final
+   action; see the `actionFunctions` vignette for the bind pattern.
+
+4. **Built-in combination test for seamless / dose-selection
+   designs** (`trial$dunnettTest` + `trial$closedTest`). The
+   canonical use case: an arm-selection (dose-selection) interim
+   feeds a confirmatory test combining stage-wise p-values across
+   the surviving arm(s). **Read the `adaptiveDesign` vignette** for
+   the worked example — it shows the formula, the `planned_info`
+   data.frame layout, and how PFS + OS can be tested under one
+   closed procedure with α split between them.
+
+If none of these fit the user's design, ask for more details and
+implement a custom procedure (weighted Hochberg, parallel
+gatekeeping with logical restrictions, complex multi-population
+designs, etc.).
 
 ## Error-handling stance
 
