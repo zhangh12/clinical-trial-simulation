@@ -251,7 +251,7 @@ example than from prose.
 
 | Function | Purpose |
 |---|---|
-| `summarizeMilestoneTime(output)` | Summarize triggering times of all milestones across replicates. Returns a `data.frame` with a `plot` method. Input is `controller$get_output()`. Useful for the report. |
+| `summarizeMilestoneTime(output)` | Summarize triggering times of all milestones across replicates. Returns a `data.frame` with a `plot` method. Input is `controller$get_output()`. **The summary is non-binding** — every replicate runs to completion in simulation, so these times do not reflect early stopping. When the design has a binding-interim rule, also report the binding expected duration derived post-hoc from saved decision flags. |
 
 ---
 

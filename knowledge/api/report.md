@@ -245,8 +245,15 @@ For each operating characteristic the user asked about:
   value.
 
 Include `summarizeMilestoneTime(out)` output for milestone-time
-distributions — it answers "when does the trial finish?" almost for
-free.
+distributions when relevant. **When you do, add a one-line note
+that these times are non-binding** — they reflect when each
+milestone fired in the simulation, where every replicate runs to
+completion, not the actual stopping time under a binding-interim
+rule. If the design has early stopping, also report the binding-
+interim expected duration derived post-hoc from saved decision
+flags (per the "trials never stop early in simulation" principle in
+SKILL.md and helpers.md), and explain the difference. Do not let a
+reader confuse the two.
 
 If applicable, include Monte Carlo standard error estimates next to
 each OC so the reader can judge precision (e.g., for a power estimate
