@@ -29,28 +29,15 @@ parameters, and operating characteristics.
 
 ## Scope
 
-In scope:
-
-- Fixed designs (any number of arms, any TTE / non-TTE endpoint mix)
-- Group-sequential designs with `rpact` or `gsDesign` for boundaries
-- Dose-selection / seamless designs via `trial$dunnettTest` +
-  `trial$closedTest`
-- Multi-endpoint multiplicity: Bonferroni, hierarchical / fixed-
-  sequence, graphical testing (`GraphicalTesting`)
-- Custom data models (NORTA, mixture exponentials, Gumbel copula,
-  three-state illness-death, four-state Markov)
-- Parameter solvers (`solveThreeStateModel`,
-  `solveMixtureExponentialDistribution`,
-  `solvePiecewiseConstantExponentialDistribution`, `weibullDropout`)
-- Dynamic treatment switching via `regimen()`
-- Adaptive arm addition / removal / sample-size reassessment / etc.
-
-Out of scope (planned for future iterations):
-
-- The package's built-in `GroupSequentialTest` class (use rpact /
-  gsDesign in the meantime)
-- Some advanced adaptive designs (e.g., promising-zone SSR with
-  combination test from scratch)
+The skill is design-agnostic by construction: TrialSimulator
+decouples a trial into a small set of independent building blocks
+(endpoints, arms, the trial object, milestones, listeners,
+controllers, regimens), and any trial design — fixed, adaptive,
+seamless, platform, anything in between — is a particular
+composition of those blocks. The skill teaches the agent to compose
+them, not to follow a fixed catalog of recognized designs. If the
+user can describe a design in clinical terms, the agent can usually
+build it from the blocks.
 
 ## Requirements
 
@@ -62,7 +49,6 @@ Out of scope (planned for future iterations):
   - `rpact` *or* `gsDesign` (for group-sequential boundary
     computation; either is fine)
   - `markdown` (for rendering the report to HTML)
-  - `mirai` (only if `n_workers > 1`; not needed by default)
   - `simdata` (only if NORTA correlated endpoints are used)
   - `DoseFinding` (only if MCPMod-style dose ranging is used)
 - **Agent** capable of executing the
@@ -116,21 +102,9 @@ the commit history for changes.
 
 MIT — see [LICENSE](LICENSE).
 
-## Author
-
-Han Zhang — author of the
-[TrialSimulator](https://github.com/zhangh12/TrialSimulator) R package.
-
 ## Contributing
 
 Issues and pull requests welcome. The skill aims to be a thinking
 framework, not a prescriptive script — contributions that simplify
 the agent's path or correct package-specific behavior are especially
 valued.
-
-## Pharma Skills
-
-This skill is intended to be merged upstream into the
-[R Consortium pharma-skills](https://github.com/RConsortium/pharma-skills)
-collection. The directory layout follows that repo's conventions
-(SKILL.md with frontmatter, README.md, LICENSE).
