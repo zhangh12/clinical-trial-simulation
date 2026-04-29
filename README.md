@@ -67,14 +67,14 @@ session inside this repo:
 ```
 
 The agent loads `SKILL.md` and the cached references in
-`knowledge/api/` and starts the conversation.
+`references/` and starts the conversation.
 
 ### Other agents
 
 Point your agent at `SKILL.md` as the entry document. It declares
 the skill's `name` and `description` in YAML frontmatter and sources
-the rest of the skill (`knowledge/api/building_blocks.md`,
-`knowledge/api/helpers.md`, `knowledge/api/report.md`).
+the rest of the skill (`references/building_blocks.md`,
+`references/helpers.md`, `references/report.md`).
 
 ## Output layout per simulation run
 

@@ -19,9 +19,9 @@ knowledge; this skill adds what is specific to TrialSimulator.
 ## Files in this skill
 
 - `SKILL.md` (this file) — framework, conversation principles, build order, workflow
-- `knowledge/api/building_blocks.md` — cached reference for `endpoint`, `arm`, `trial`, `milestone`, `listener`, `controller`, `regimen`, and the condition system
-- `knowledge/api/helpers.md` — catalog of TrialSimulator-provided functions (RNGs, parameter solvers, analysis wrappers, post-sim utilities), plus non-obvious gotchas
-- `knowledge/api/report.md` — how to write the simulation report (intentionally policy-light; organizations are encouraged to edit this file)
+- `references/building_blocks.md` — cached reference for `endpoint`, `arm`, `trial`, `milestone`, `listener`, `controller`, `regimen`, and the condition system
+- `references/helpers.md` — catalog of TrialSimulator-provided functions (RNGs, parameter solvers, analysis wrappers, post-sim utilities), plus non-obvious gotchas
+- `references/report.md` — how to write the simulation report (intentionally policy-light; organizations are encouraged to edit this file)
 
 These files cache the most common things to save tokens. When confused
 or when behavior contradicts these notes, consult `?<function>` in R

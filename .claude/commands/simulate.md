@@ -8,9 +8,9 @@ package's pkgdown site (https://zhangh12.github.io/TrialSimulator/)
 when you need more depth.
 
 - `SKILL.md` — framework, package philosophy, build order, conversation principles, workflow
-- `knowledge/api/building_blocks.md` — `endpoint`, `arm`, `trial`, `milestone`, `listener`, `controller`, `regimen`, condition system
-- `knowledge/api/helpers.md` — TrialSimulator-provided functions (RNGs, parameter solvers, analysis wrappers, post-sim utilities) and non-obvious gotchas
-- `knowledge/api/report.md` — report structure for QC
+- `references/building_blocks.md` — `endpoint`, `arm`, `trial`, `milestone`, `listener`, `controller`, `regimen`, condition system
+- `references/helpers.md` — TrialSimulator-provided functions (RNGs, parameter solvers, analysis wrappers, post-sim utilities) and non-obvious gotchas
+- `references/report.md` — report structure for QC
 
 All file paths are relative to the SimulationSkill project root.
 
