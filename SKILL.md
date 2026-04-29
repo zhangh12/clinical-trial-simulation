@@ -192,6 +192,28 @@ Two confirmation gates before any expensive work:
    Catches save↔OC mismatches that are expensive to fix
    post-simulation.
 
+### Don't ask about internal workflow
+
+Some choices are part of the agent's internal validation workflow
+or have a single sensible default — they are not user-facing
+decisions. Don't ask; just do.
+
+- **Sanity → calibration → production.** This iteration is the
+  agent's own testing protocol (see "Iteration and runtime"). The
+  user doesn't decide whether to run a small sanity check before
+  production — the agent does it as part of producing a working
+  script. Don't ask.
+- **Seed.** `seed = NULL` (auto per-replicate, recorded in the
+  output) is the correct default for simulation studies. Don't ask
+  the user about it. Use a fixed integer seed only if the user
+  explicitly asks for reproducibility of a specific replicate (e.g.,
+  for debugging).
+- **`silent = TRUE` on `trial()`, `listener()`, `controller$run()`.**
+  Standard for production runs; don't ask.
+- **`plot_event = FALSE` on `controller$run()`** when running multiple
+  replicates. The package forces it off anyway when `n > 1`; don't
+  ask.
+
 ## Code quality
 
 - **Named arguments everywhere.** Never positional.

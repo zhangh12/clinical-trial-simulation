@@ -25,6 +25,7 @@ same sequence. Each section pairs (a) the relevant code snippet,
 parameters used, (c) caveats inline if any.
 
 ```
+0. Cost and token usage           — top of report; session-total tokens + cost
 1. Why this design                — opening rationale (thought trail)
 2. Confirmed parameters           — single source of truth (table)
 2.5 Boundary computation          — only if external tools (rpact /
@@ -55,6 +56,45 @@ rules:
 - **Show the code as it actually appears in the script** — same
   variable names, same arguments, same line breaks. The report is
   the script narrated, not a paraphrase.
+
+### 0. Cost and token usage (at the very top of the report)
+
+A small table reporting the total token usage and cost for the
+entire session — from the moment `/simulate` was invoked to the
+moment the report is generated. The user wants to see this without
+having to run any extra command.
+
+The agent retrieves these via whatever telemetry is available in the
+running environment. Likely paths in Claude Code:
+
+- **`/cost` slash command output** — if the agent can capture it
+  (read the conversation log, parse a recent `/cost` invocation).
+- **Session JSONL log** at `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`
+  — each turn typically records `usage` with `input_tokens`,
+  `output_tokens`, `cache_creation_input_tokens`,
+  `cache_read_input_tokens`. Sum across turns; multiply by the
+  model's per-token rate.
+- **Telemetry directory** at `~/.claude/telemetry/` if usage events
+  are emitted there.
+
+Use the recorded model name to look up the rate. If multiple models
+were used in the session (rare), sum their costs.
+
+If automated retrieval genuinely isn't possible, leave the placeholder
+table and one line asking the user to run `/cost` and paste the
+numbers — but make a real effort first.
+
+Recommended format:
+
+| Metric | Value |
+|---|---|
+| Input tokens | ... |
+| Output tokens | ... |
+| Cache read tokens | ... |
+| Cache write tokens | ... |
+| Total cost (USD) | $... |
+| Model | claude-opus-4-7 (or actual) |
+| Session duration | hh:mm |
 
 ### 1. Why this design
 
