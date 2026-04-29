@@ -8,14 +8,17 @@
 .Rhistory
 .RData
 .Rproj.user/
+*.Rproj
 
 # macOS
 .DS_Store
 
-# Per-trial simulation output (agent creates these in dedicated folders or
-# at the root during testing; not part of the skill itself)
+# Per-trial simulation output (per-trial folders)
 /runs/
 /output/
-/pfs_gs_*
-/Rplots.pdf
-/milestone_times.*
+
+# Stray simulation byproducts at the repo root (skill writes inside
+# per-trial folders; anything at root is a test/debug artifact)
+/*.rds
+/*.png
+/*.pdf
