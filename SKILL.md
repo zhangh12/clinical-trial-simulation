@@ -216,6 +216,15 @@ Two confirmation gates before any expensive work:
   with actual rule`. Guard against edge cases (`length() > 0` before
   `remove_arms`, etc.). A dummy that runs is better than a TODO that
   blocks validation.
+- **Comment action functions liberally.** Action functions encode
+  the design's decision logic — the "why" of every threshold, fit,
+  adaptation, and save call. Without comments, a QC reviewer has to
+  reverse-engineer intent from variable names. At minimum comment:
+  (a) the trigger the action runs at and the data lock it operates
+  on, (b) the test / adaptation rule and why this choice, (c) what
+  each `trial$save()` captures and which OC it feeds. Inline `#`
+  comments next to the relevant lines are usually enough; don't
+  hide everything in a header docstring.
 ## Testing and multiplicity
 
 Two intertwined concerns: how to compute decision boundaries when a
@@ -331,14 +340,42 @@ code succeeds at larger `n`, it's not a bug.
 
 ### Output organization
 
-Create a dedicated folder for each simulation run — the script, the
-saved output (`.rds`), the report (`.md` and rendered `.html`), and
-any plots all go in that folder. A common convention is
-`runs/<trial_name>/` or just `<trial_name>/` at the project root, with
-files named consistently inside (`sim.R`, `report.md`, `output.rds`,
-`milestone_times.png`, etc.). This keeps the project root clean,
-makes side-by-side comparison of design variants trivial, and means
-the user can zip a single folder to share results.
+Create a dedicated folder for each simulation run, with R scripts in
+a `scripts/` subfolder split by purpose:
+
+```
+runs/<trial_name>/
+  scripts/
+    main.R          ← building blocks: endpoint, arm, trial,
+                       milestone, listener, controller, run, OC summary
+    actions.R       ← action functions (omit if no non-doNothing actions)
+    generators.R    ← custom generator functions (omit if none)
+    helpers.R       ← helpers used by generators or actions (omit if none)
+    boundaries.R    ← external boundary computation via rpact /
+                       gsDesign (omit if not used). Run ONCE before
+                       main.R; the literal results are hardcoded in
+                       main.R or actions.R. Keeping it as its own
+                       file preserves a reproducible record of where
+                       the literals came from.
+  output.rds        ← saved by main.R
+  report.md         ← the report
+  report.html       ← rendered via markdown::mark_html
+  milestone_times.png ← embedded in the report
+```
+
+`main.R` sources whichever sibling files exist:
+
+```r
+source("actions.R")
+source("generators.R")   # only if it exists
+source("helpers.R")      # only if it exists
+```
+
+Splitting keeps each file short enough to review at a glance and
+makes "show me the action functions" trivial. Files that don't apply
+to a given design (no custom generators, no helpers, no external
+boundaries) should be omitted entirely — empty placeholders add
+noise.
 
 ### Parallelism
 

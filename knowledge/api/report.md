@@ -27,13 +27,15 @@ parameters used, (c) caveats inline if any.
 ```
 1. Why this design                — opening rationale (thought trail)
 2. Confirmed parameters           — single source of truth (table)
-3. Endpoints                      — per unique endpoint structure
-4. Arms                           — per arm (brief; reference §3)
-5. Trial setup                    — n, duration, accrual, dropout, stratification
-6. Milestones                     — per milestone (trigger + action summary)
-7. Action functions               — per action (detailed)
-8. Operating characteristics      — mapped back to research questions
-9. Caveats and limitations        — placeholders, stubs, helper-dependencies
+2.5 Boundary computation          — only if external tools (rpact /
+                                    gsDesign / multcomp / ...) were used
+3. Arms (with endpoints)          — per arm: endpoint(...) calls +
+                                    arm() + add_endpoints(), bundled
+4. Trial setup                    — n, duration, accrual, dropout, stratification
+5. Milestones                     — per milestone (trigger + action summary)
+6. Action functions               — per action (full body verbatim)
+7. Operating characteristics      — mapped back to research questions
+8. Caveats and limitations        — placeholders, stubs, helper-dependencies
 ```
 
 The build-order sections that have a clear *design* meaning (3-7)
@@ -83,30 +85,71 @@ restating numbers. Include:
 If a parameter is a stub (dummy decision rule, placeholder for a
 combination test), mark it clearly in this table.
 
-### 3. Endpoints
+### 2.5 Boundary computation (only if external tools were used)
 
-Group by **unique endpoint structure**, not per arm. Three arms with
-the same endpoint shape but different medians get one section
-explaining the structure plus a per-arm parameter table. This makes
-"the only differences are the medians I asked for" trivially
-verifiable.
+If decision boundaries were computed via an external package
+(`rpact`, `gsDesign`, `multcomp`, `gMCP`, etc.), include both the
+**call** and the **output** verbatim from the boundary script. The
+reviewer must be able to reproduce the calculation without leaving
+the report. Do not paraphrase the call or summarize the output.
 
-For each endpoint structure:
-- Show the `endpoint(...)` call (one arm's parameters; cite the table
-  for others).
-- One short paragraph: what the endpoint represents clinically,
-  what distribution / generator was chosen and why, readout time if
-  non-TTE, any helper used to derive parameters.
+```r
+# scripts/boundaries.R contents — verbatim
+library(rpact)
+design <- getDesignGroupSequential(
+  kMax             = 2,
+  informationRates = c(0.66, 1.00),
+  alpha            = 0.025,
+  beta             = 0.20,
+  sided            = 1,
+  typeOfDesign     = "asOF"
+)
+sample <- getSampleSizeSurvival(design = design, hazardRatio = 0.74,
+                                allocationRatioPlanned = 1)
+```
+
+```
+# output of running boundaries.R — verbatim (key fields):
+Critical z-values (one-sided, upper):  2.524  1.992
+Local one-sided alpha at each stage:   0.005798  0.023210
+Max events (final, 100% IF):           351
+Interim events (66% IF):               232
+```
+
+The literals from this output are what get hardcoded into the
+relevant `milestone(...)` extra args or `action_*` functions in §6.
+Cross-reference §2 (Confirmed parameters) so the reviewer can
+verify the literals match.
+
+Skip this section entirely when no external boundary tool was used.
+
+### 3. Arms (with endpoints)
+
+Bundle each arm's full assembly into one block: the `endpoint(...)`
+call(s) for that arm, the `arm(...)` call, and the `$add_endpoints(...)`
+call. Define everything for one arm before moving to the next. This
+matches the package's build order and lets a reviewer audit each arm
+in one pass without scrolling.
+
+Per arm:
+
+- Code block showing `endpoint(...)` → `arm(...)` → `$add_endpoints(...)`,
+  one statement per line, verbatim from the script.
+- Short paragraph: what the arm represents clinically, what
+  distribution / generator was chosen and why, readout times for
+  non-TTE endpoints, any filter conditions, any helper used to
+  derive parameters.
 - Caveats inline (e.g., "`CorrelatedPfsAndOs3` is incompatible with
   Cox PH; final analysis uses log-rank instead.")
 
-### 4. Arms
+When two or more arms share the same endpoint structure with only
+parameter differences, the explanation can be written once at the
+top of the section and arms below reference it — but **the code
+blocks per arm should still be shown in full** so each arm is
+self-contained for review. A small per-arm parameter table is also
+fine when many arms differ only in numeric values.
 
-Brief — the heavy lifting was in §3. Per arm:
-- Show `arm(...)` and `$add_endpoints(...)`.
-- One sentence on filter conditions (if any) and sample ratio.
-
-### 5. Trial setup
+### 4. Trial setup
 
 Show the `trial(...)` call. Explain:
 - Sample size and duration (and whether `set_duration`/`resize` will
@@ -118,7 +161,7 @@ Show the `trial(...)` call. Explain:
 - Stratification factors (if any) and which baseline endpoints
   implement them.
 
-### 6. Milestones
+### 5. Milestones
 
 Per milestone:
 - Show the `milestone(...)` call with its `when` condition.
@@ -126,15 +169,17 @@ Per milestone:
   at the trigger, when in the trial it is expected to fire (cite
   expected milestone time from the calibration run if available).
 
-### 7. Action functions
+### 6. Action functions
 
 **Show the full body of each action function** as a code block —
 verbatim from the script, one statement per line. Prose summaries
 are not enough for QC; the reviewer needs to see the actual logic.
+The code block should already be liberally commented (see SKILL.md
+"Comment action functions liberally" rule).
 
 After (not before) the code block, add a short narrative covering:
 
-- **Trigger** — restate from §6.
+- **Trigger** — restate from §5.
 - **Data lock** — what `get_locked_data` returns at this point;
   which arms / endpoints are populated.
 - **Analysis** — which test, which wrapper, why this choice. **If
@@ -148,7 +193,7 @@ After (not before) the code block, add a short narrative covering:
 
 The narrative annotates the code block; it does not replace it.
 
-### 8. Operating characteristics
+### 7. Operating characteristics
 
 For each operating characteristic the user asked about:
 - Restate the research question in the user's words.
@@ -156,7 +201,7 @@ For each operating characteristic the user asked about:
   produced it: e.g., `mean(out$reject_h0)`).
 - A small table or plot if the OC has structure (per-arm power,
   per-stage decision rates, allocation distribution).
-- Cite which `trial$save()` call from §7 supplies the underlying
+- Cite which `trial$save()` call from §6 supplies the underlying
   value.
 
 Include `summarizeMilestoneTime(out)` output for milestone-time
@@ -167,7 +212,7 @@ If applicable, include Monte Carlo standard error estimates next to
 each OC so the reader can judge precision (e.g., for a power estimate
 `p` from `n` replicates, MCSE ≈ √(p(1−p)/n)).
 
-### 9. Caveats and limitations
+### 8. Caveats and limitations
 
 A short list of things the user should know:
 - Dummy decision rules that need replacement before the design is

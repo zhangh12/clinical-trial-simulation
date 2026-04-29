@@ -288,7 +288,9 @@ tr <- trial(
   n_patients   = 300,
   duration     = 36,
   enroller     = StaggeredRecruiter,
-  accrual_rate = accrual
+  accrual_rate = accrual,
+  dropout      = rexp,
+  rate         = -log(0.95) / 12     # 5% dropout by month 12
 )
 tr$add_arms(sample_ratio = c(1, 1), ctrl, exp1)
 
